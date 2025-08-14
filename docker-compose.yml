@@ -1,0 +1,20 @@
+version: '3.11'
+
+services:
+  metabase-url-server:
+    build: .
+    ports:
+      - "7070:7070"
+    environment:
+      - METABASE_SITE_URL=${METABASE_SITE_URL}
+      - METABASE_SECRET_KEY=${METABASE_SECRET_KEY}
+      - TOKEN_EXPIRATION_MINUTES=${TOKEN_EXPIRATION_MINUTES:-30}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7070/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
