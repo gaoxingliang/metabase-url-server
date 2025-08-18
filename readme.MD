@@ -35,7 +35,7 @@ The server includes comprehensive logging with automatic rotation:
 
 ## API Endpoints
 
-### POST /api/urls
+### POST /api/metabase/urls
 
 Generates a Metabase embedding URL with JWT token.
 
@@ -70,7 +70,7 @@ Health check endpoint.
 ## Example Usage
 
 ```bash
-curl -X POST http://localhost:7070/api/urls \
+curl -X POST http://localhost:7070/api/metabase/urls \
   -H "Content-Type: application/json" \
   -d '{"resource": "dashboard", "id": "2"}'
 ```

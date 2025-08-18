@@ -71,7 +71,7 @@ if not METABASE_SECRET_KEY:
 logger.info(f"Server initialized with METABASE_SITE_URL: {METABASE_SITE_URL}")
 logger.info(f"Token expiration set to {TOKEN_EXPIRATION_MINUTES} minutes")
 
-@app.post('/api/urls')
+@app.post('/api/metabase/urls')
 def generate_url():
     # Log incoming request
     client_ip = request.environ.get('REMOTE_ADDR', 'unknown')
