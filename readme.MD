@@ -32,9 +32,6 @@ The server includes comprehensive logging with automatic rotation:
 - **Size-based Rotation**: Logs rotate when they reach 10MB (keeps 5 backup files)
 - **Daily Rotation**: Logs rotate daily at midnight (keeps 30 days of logs)
 - **Log Location**: All logs are stored in the `logs/` directory
-  - `logs/app.log` - Current log file with size rotation
-  - `logs/app_daily.log` - Daily rotated logs
-  - `logs/app.log.1`, `logs/app.log.2`, etc. - Size-based backup files
 
 ## API Endpoints
 
@@ -54,10 +51,7 @@ Generates a Metabase embedding URL with JWT token.
 ```json
 {
   "url": "http://metabase-server/embed/dashboard/jwt-token#bordered=true&titled=true",
-  "token": "jwt-token-here",
-  "resource": "dashboard",
-  "id": "2",
-  "expires_in": 1200
+  "expires_in_minutes": 30
 }
 ```
 
@@ -121,15 +115,6 @@ docker run -d \
   -v $(pwd)/logs:/app/logs \
   edwardg/metabase-url-server
 ```
-
-### Docker Features
-
-The Docker image includes additional system tools for debugging and monitoring:
-
-- **Network Tools**: `netstat`, `curl`, `telnet`, `ping`, `traceroute`, `wget`
-- **System Monitoring**: `top`, `htop`, `ps`, `lsof`
-- **Text Editors**: `vi`, `vim`, `nano`
-- **File Utilities**: `tree`, `less`
 
 ### Accessing the Container
 

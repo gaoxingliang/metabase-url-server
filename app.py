@@ -39,7 +39,7 @@ def setup_logging():
         'logs/app_daily.log',
         when='midnight',
         interval=1,
-        backupCount=10
+        backupCount=30
     )
     daily_handler.setLevel(logging.INFO)
     daily_handler.setFormatter(file_formatter)
