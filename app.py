@@ -246,32 +246,6 @@ def health_check():
     response_data = {'status': 'healthy', 'service': 'metabase-url-server'}
     return response_data
 
-@app.get('/api/auth/groups')
-def list_auth_groups():
-    """List available authentication groups (admin endpoint)"""
-    try:
-        # Load current config
-        current_config = load_config()
-        auth_groups = current_config['auth_groups']
-        
-        # Return only group names and descriptions (not secrets)
-        groups_info = {}
-        for group_name, group_config in auth_groups.items():
-            groups_info[group_name] = {
-                'description': group_config.get('description', ''),
-                'enabled': group_config.get('enabled', True)
-            }
-        
-        return {
-            'groups': groups_info,
-            'total_groups': len(groups_info)
-        }
-        
-    except Exception as e:
-        logger.error(f"Error listing auth groups: {str(e)}")
-        response.status = 500
-        return {'error': f'Internal server error: {str(e)}'}
-
 if __name__ == '__main__':
     logger.info("Starting Metabase URL Server on http://0.0.0.0:7070")
     app.run(host='0.0.0.0', port=7070, debug=True)
