@@ -1,2 +1,4 @@
 bottle==0.12.25
 PyJWT==2.8.0
+PyYAML==6.0.1
+requests==2.32.4

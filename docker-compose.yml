@@ -6,11 +6,10 @@ services:
     ports:
       - "7070:7070"
     environment:
-      - METABASE_SITE_URL=${METABASE_SITE_URL}
-      - METABASE_SECRET_KEY=${METABASE_SECRET_KEY}
       - TOKEN_EXPIRATION_MINUTES=${TOKEN_EXPIRATION_MINUTES:-30}
     volumes:
       - ./logs:/app/logs
+      - ./conf:/app/conf
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7070/"]

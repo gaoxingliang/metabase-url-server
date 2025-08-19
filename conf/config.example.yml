@@ -1,0 +1,38 @@
+# Metabase URL Server Configuration Example
+# Copy this file to config.yml and modify with your own values
+
+# Metabase configuration
+metabase:
+  site_url: "http://your-metabase-server:port"
+  secret_key: "your-metabase-secret-key"
+
+# Authentication groups
+auth_groups:
+  # Example: Development team
+  dev_team:
+    app_key: "your_dev_app_key_here"
+    app_secret: "your_dev_app_secret_here"
+    description: "Development team access"
+    enabled: true
+    
+  # Example: Production team  
+  prod_team:
+    app_key: "your_prod_app_key_here"
+    app_secret: "your_prod_app_secret_here"
+    description: "Production team access"
+    enabled: true
+    
+  # Example: Analytics team
+  analytics_team:
+    app_key: "your_analytics_app_key_here"
+    app_secret: "your_analytics_app_secret_here"
+    description: "Analytics team access"
+    enabled: true
+
+# Server configuration
+server:
+  # Token expiration time in minutes (can be overridden by environment variable)
+  token_expiration_minutes: 30
+  
+  # Logging level (DEBUG, INFO, WARNING, ERROR)
+  log_level: "INFO"

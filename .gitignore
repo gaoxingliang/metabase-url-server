@@ -206,3 +206,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 /logs/
+
+# Configuration files (contains sensitive data)
+conf/config.yml
