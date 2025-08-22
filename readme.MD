@@ -64,11 +64,7 @@ The server includes comprehensive logging with automatic rotation:
 
 Generates a Metabase embedding URL with JWT token. **Requires authentication.**
 
-**Headers:**
-```
-X-App-Key: your_app_key_here
-X-App-Secret: your_app_secret_here
-```
+see [README_SECURITY.md](./README_SECURITY.md) for more auth details.
 
 **Request Body:**
 ```json
@@ -86,13 +82,6 @@ X-App-Secret: your_app_secret_here
 }
 ```
 
-**Authentication Error Response:**
-```json
-{
-  "error": "Authentication required. Please provide X-App-Key and X-App-Secret headers"
-}
-```
-
 ### GET /health
 
 Health check endpoint.
@@ -103,17 +92,6 @@ Health check endpoint.
   "status": "healthy",
   "service": "metabase-url-server"
 }
-```
-
-## Example Usage
-
-### Generate Metabase URL (with authentication)
-```bash
-curl -X POST http://localhost:7070/api/metabase/urls \
-  -H "Content-Type: application/json" \
-  -H "X-App-Key: dev_app_key_12345" \
-  -H "X-App-Secret: dev_app_secret_67890" \
-  -d '{"resource": "dashboard", "id": "2"}'
 ```
 
 ## Configuration
@@ -212,10 +190,4 @@ docker ps
 
 # Access container shell
 docker exec -it <container_id> /bin/bash
-
-# Example: Check network connections
-docker exec -it <container_id> netstat -tulpn
-
-# Example: Monitor system resources
-docker exec -it <container_id> top
 ```

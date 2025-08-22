@@ -8,6 +8,13 @@ metabase:
 
 # Authentication groups
 auth_groups:
+  # Test group for development and testing
+  test_group:
+    app_key: "test_app_key"
+    app_secret: "test_app_secret"
+    description: "Test group for development and testing"
+    enabled: true
+    
   # Example: Development team
   dev_team:
     app_key: "your_dev_app_key_here"

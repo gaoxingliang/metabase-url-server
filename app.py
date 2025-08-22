@@ -3,6 +3,11 @@ import jwt
 import time
 import logging
 import yaml
+import hashlib
+import hmac
+import base64
+import uuid
+import threading
 from bottle import Bottle, request, response
 import json
 
@@ -114,29 +119,139 @@ def load_config():
         logger.error(f"Error loading configuration: {str(e)}")
         raise
 
-def authenticate_request(app_key, app_secret):
-    """Authenticate request using app_key and app_secret"""
-    if not hasattr(authenticate_request, 'config'):
-        authenticate_request.config = load_config()
-    
-    auth_groups = authenticate_request.config['auth_groups']
+# Global variables for authentication
+SECRETS_DB = {}
+NONCE_CACHE = {}  # {nonce: timestamp}
+TIME_WINDOW_SECONDS = 300  # 5分钟时间窗口
+NONCE_CLEANUP_INTERVAL = 60  # 清理间隔（秒）
+LAST_CLEANUP_TIME = time.time()
+
+# Thread safety for NONCE_CACHE
+NONCE_CACHE_LOCK = threading.RLock()
+
+def initialize_auth_db():
+    """Initialize the authentication database from config"""
+    global SECRETS_DB
+    config = load_config()
+    auth_groups = config['auth_groups']
     
     for group_name, group_config in auth_groups.items():
-        if not group_config.get('enabled', True):
-            continue
-            
-        if (group_config['app_key'] == app_key and 
-            group_config['app_secret'] == app_secret):
-            logger.info(f"Authentication successful for group: {group_name}")
-            return True, group_name
+        if group_config.get('enabled', True):
+            SECRETS_DB[group_config['app_key']] = group_config['app_secret']
     
-    logger.warning(f"Authentication failed for app_key: {app_key}")
-    return False, None
+    logger.info(f"Authentication database initialized with {len(SECRETS_DB)} active keys")
+
+def cleanup_expired_nonces():
+    """清理过期的nonce缓存（线程安全版本）"""
+    global NONCE_CACHE, LAST_CLEANUP_TIME
+    current_time = time.time()
+    
+    # 使用锁保护整个清理过程
+    with NONCE_CACHE_LOCK:
+        # 检查是否需要清理（每60秒清理一次）
+        if current_time - LAST_CLEANUP_TIME < NONCE_CLEANUP_INTERVAL:
+            return
+        
+        # 清理过期的nonce
+        expired_nonces = []
+        for nonce, timestamp in NONCE_CACHE.items():
+            if current_time - timestamp > TIME_WINDOW_SECONDS:
+                expired_nonces.append(nonce)
+        
+        # 删除过期的nonce
+        for nonce in expired_nonces:
+            del NONCE_CACHE[nonce]
+        
+        if expired_nonces:
+            logger.info(f"Cleaned up {len(expired_nonces)} expired nonces. Cache size: {len(NONCE_CACHE)}")
+        
+        LAST_CLEANUP_TIME = current_time
+
+
+
+def verify_signature():
+    """Verify HMAC signature for incoming requests"""
+    # Extract authentication headers
+    app_key = request.headers.get('X-AppKey')
+    timestamp_str = request.headers.get('X-Timestamp')
+    nonce = request.headers.get('X-Nonce')
+    auth_header = request.headers.get('Authorization', '')
+
+    if not all([app_key, timestamp_str, nonce, auth_header]):
+        logger.warning("Request rejected: Missing required authentication headers")
+        response.status = 401
+        return {'error': 'Missing required authentication headers'}
+
+    try:
+        client_signature = auth_header.split(' ')[1]
+        timestamp = int(timestamp_str)
+    except (IndexError, ValueError):
+        logger.warning("Request rejected: Invalid authorization or timestamp format")
+        response.status = 401
+        return {'error': 'Invalid authorization or timestamp format'}
+
+    # Check if app_key exists
+    if app_key not in SECRETS_DB:
+        logger.warning(f"Request rejected: Invalid AppKey: {app_key}")
+        response.status = 401
+        return {'error': 'Invalid AppKey'}
+
+    # Check timestamp validity (prevent replay attacks)
+    if abs(time.time() - timestamp) > TIME_WINDOW_SECONDS:
+        logger.warning(f"Request rejected: Timestamp expired. Server time: {time.time()}, Client time: {timestamp}")
+        response.status = 401
+        return {'error': 'Request timestamp has expired'}
+
+    # Clean up expired nonces before checking
+    cleanup_expired_nonces()
+    
+    # Check nonce to prevent replay attacks (线程安全)
+    with NONCE_CACHE_LOCK:
+        if nonce in NONCE_CACHE:
+            logger.warning(f"Request rejected: Duplicate nonce detected: {nonce}")
+            response.status = 401
+            return {'error': 'Duplicate request (replay attack detected)'}
+
+        # Add nonce to cache with timestamp
+        NONCE_CACHE[nonce] = time.time()
+
+    # Reconstruct the string to sign
+    app_secret = SECRETS_DB[app_key]
+    http_method = request.method
+    uri_path = request.path
+    request_body = request.body.read().decode('utf-8') if request.body else ''
+
+    string_to_sign = (
+        f"{http_method}\n"
+        f"{uri_path}\n"
+        f"{timestamp_str}\n"
+        f"{nonce}\n"
+        f"{request_body}"
+    )
+
+    # Generate server signature
+    server_signature_raw = hmac.new(
+        app_secret.encode('utf-8'),
+        string_to_sign.encode('utf-8'),
+        hashlib.sha256
+    ).digest()
+    server_signature = base64.b64encode(server_signature_raw).decode('utf-8')
+
+    # Compare signatures using constant-time comparison
+    if not hmac.compare_digest(server_signature, client_signature):
+        logger.warning(f"Request rejected: Signature mismatch for app_key: {app_key}")
+        response.status = 401
+        return {'error': 'Signature mismatch'}
+
+    # Authentication successful
+    logger.info(f"Authentication successful for app_key: {app_key}")
+    return None
 
 app = Bottle()
 
-# Load configuration
+# Initialize authentication database
 try:
+    initialize_auth_db()
     config = load_config()
     logger.info("Configuration loaded successfully")
 except Exception as e:
@@ -171,23 +286,10 @@ def generate_url():
     logger.info(f"POST /api/urls - Client IP: {client_ip}, User-Agent: {user_agent}")
     
     try:
-        # Check for authentication headers
-        app_key = request.headers.get('X-App-Key')
-        app_secret = request.headers.get('X-App-Secret')
-        
-        if not app_key or not app_secret:
-            logger.warning(f"Request rejected: Missing authentication headers - app_key: {bool(app_key)}, app_secret: {bool(app_secret)}")
-            response.status = 401
-            return {'error': 'Authentication required. Please provide X-App-Key and X-App-Secret headers'}
-        
-        # Authenticate the request
-        is_authenticated, group_name = authenticate_request(app_key, app_secret)
-        if not is_authenticated:
-            logger.warning(f"Request rejected: Authentication failed for app_key: {app_key}")
-            response.status = 401
-            return {'error': 'Authentication failed. Invalid app_key or app_secret'}
-        
-        logger.info(f"Request authenticated for group: {group_name}")
+        # Verify HMAC signature
+        auth_error = verify_signature()
+        if auth_error:
+            return auth_error
         
         # Parse JSON body
         body = request.json
@@ -214,7 +316,6 @@ def generate_url():
             "params": {},
             "exp": round(time.time()) + (60 * TOKEN_EXPIRATION_MINUTES)  # Configurable expiration
         }
-        
 
         # Generate JWT token
         token = jwt.encode(payload, METABASE_SECRET_KEY, algorithm='HS256')
@@ -245,6 +346,8 @@ def generate_url():
 def health_check():
     response_data = {'status': 'healthy', 'service': 'metabase-url-server'}
     return response_data
+
+
 
 if __name__ == '__main__':
     logger.info("Starting Metabase URL Server on http://0.0.0.0:7070")
